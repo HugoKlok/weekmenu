@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekmenu & Boodschappen</title>
+<meta name="theme-color" content="#047857">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f4ef;color:#333}
+header{background:#047857;color:#fff;padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+header h1{font-size:20px;margin:0}
+.tabs{margin-left:auto;display:flex;gap:4px;background:#065f46;padding:4px;border-radius:12px}
+.tabs button{border:0;background:transparent;color:#d1fae5;padding:8px 12px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
+.tabs button.active{background:#fff;color:#065f46}
+main{max-width:860px;margin:0 auto;padding:14px 14px 80px}
+.card{background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:16px;margin-bottom:14px}
+h2{font-size:18px;margin:0 0 8px}
+h3{font-size:15px;margin:0 0 8px}
+p.hint{font-size:13px;color:#666;margin:0 0 12px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+input,select,textarea{border:1px solid #ccc;border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit}
+input.flex,textarea{flex:1;min-width:140px}
+.btn{background:#059669;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:500;cursor:pointer}
+.btn.soft{background:#ecfdf5;color:#065f46}
+.btn.ghost{background:#fff;color:#444;border:1px solid #ccc}
+.btn:disabled{opacity:.5}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:500}
+.chip.green{background:#d1fae5;color:#065f46}.chip.amber{background:#fef3c7;color:#92400e}.chip.gray{background:#f3f4f6;color:#4b5563}.chip.pink{background:#fce7f3;color:#9d174d}.chip.red{background:#fee2e2;color:#b91c1c}
+ul{list-style:none;margin:0;padding:0}
+li.line{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f1f1f1;flex-wrap:wrap}
+li.line:last-child{border-bottom:0}
+.muted{font-size:12px;color:#888}
+.done{text-decoration:line-through;color:#aaa}
+.stars{color:#f59e0b;letter-spacing:1px;cursor:pointer}
+.stars .off{color:#d1d5db}
+.recipe{border:1px solid #e5e5e5;border-radius:12px;padding:12px;margin-bottom:8px;display:flex;flex-direction:column;gap:4px}
+.recipe.chosen{border-color:#059669;background:#ecfdf5}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:#666}
+.rtop{display:flex;justify-content:space-between;gap:6px}
+.x{background:none;border:0;color:#ccc;cursor:pointer;font-size:15px}
+.x:hover{color:#ef4444}
+.notechip{font-size:12px;font-style:italic;background:#f9fafb;color:#4b5563;border-radius:6px;padding:3px 8px}
+form.add{background:#f9fafb;border:1px solid #e5e5e5;border-radius:12px;padding:12px;margin-bottom:12px}
+.warn{background:#fffbeb;color:#92400e;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🥬 Weekmenu & Boodschappen</h1>
+  <div class="tabs" id="tabs"></div>
+</header>
+<main id="app"></main>
+<script>
+"use strict";
+
+// ---------- Opslag ----------
+var LS="wba_";
+function load(k,d){try{var r=localStorage.getItem(LS+k);return r?JSON.parse(r):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(LS+k,JSON.stringify(v))}catch(e){}}
+
+var RECIPE_BUILTIN=[
+{rid:1,name:"Pasta met spinazie en zongedroogde tomaat",time:20,tags:["pasta","snel"],steps:"Kook de pasta. Fruit knoflook kort, voeg spinazie en zongedroogde tomaat toe tot de spinazie sluit. Roer de room en voedingsgist erdoor, meng met de pasta.",ingredients:[["Pasta (penne of fusilli)","Droogvoer & Pasta"],["Verse spinazie","Groente & Fruit"],["Zongedroogde tomaten","Blik & Glazen (conserven)"],["Kokos- of haverroom","Plantbased zuivel"],["Knoflook","Groente & Fruit"],["Voedingsgist","Kruiden & Sauzen"]]},
+{rid:2,name:"Indiase linzendhal",time:35,tags:["curry","budget"],steps:"Fruit ui, knoflook en gember. Voeg kerrie en kurkuma toe, dan linzen, kokosmelk en tomatenblokjes. 20 min zacht koken tot dik. Koriander erover.",ingredients:[["Rode linzen","Droogvoer & Pasta"],["Kokosmelk","Blik & Glazen (conserven)"],["Tomatenblokjes","Blik & Glazen (conserven)"],["Uien","Groente & Fruit"],["Knoflook","Groente & Fruit"],["Gember","Groente & Fruit"],["Kerriepoeder en kurkuma","Kruiden & Sauzen"],["Verse koriander","Groente & Fruit"]]},
+{rid:3,name:"Bourguignon van paddenstoelen",time:50,tags:["hartig","seizoenskeuken"],steps:"Braad de paddenstoelen en groente aan, blus met wijn/bouillon en sojasaus. 30 min stoven. Serveren met aardappelen en brood.",ingredients:[["Champignons","Groente & Fruit"],["Winterpeen en knolselderij","Groente & Fruit"],["Uien","Groente & Fruit"],["Rode wijn of bouillon","Kruiden & Sauzen"],["Sojasaus","Kruiden & Sauzen"],["Vers brood erbij","Brood & Bakkerij"],["Aardappelen","Groente & Fruit"]]},
+{rid:4,name:"Burrito bowls met zwarte bonen",time:30,tags:["Mexicaans","meal-prep"],steps:"Kook rijst, verwarm bonen en mais met taco-kruiden. Snijd groente en avocado. Vul bowls met rijst, bonenmix, salade en limoen.",ingredients:[["Zwarte bonen","Blik & Glazen (conserven)"],["Rijst","Droogvoer & Pasta"],["Mais","Blik & Glazen (conserven)"],["Rode paprika","Groente & Fruit"],["Komkommer","Groente & Fruit"],["Avocado","Groente & Fruit"],["Limoen","Groente & Fruit"],["Taco-kruiden","Kruiden & Sauzen"]]},
+{rid:5,name:"Stir-fry met tofu en noedels",time:25,tags:["Aziatisch","snel"],steps:"Bak tofu krokant, roerbak groente en paksoi met gember. Voeg noedels en sojasaus toe, afmaken met sesam.",ingredients:[["Stevige tofu","Vleesvervangers & Koelvers"],["Noedels","Droogvoer & Pasta"],["Paksoi","Groente & Fruit"],["Paprika en wortels","Groente & Fruit"],["Sojasaus","Kruiden & Sauzen"],["Sesamolie en sesamzaad","Kruiden & Sauzen"],["Gember","Groente & Fruit"]]},
+{rid:6,name:"Falafel met couscous en plantbased tzatziki",time:40,tags:["Midden-Oosters"],steps:"Bak de falafel. Kook couscous. Rasp komkommer, meng met yoghurt en knoflook tot tzatziki. Serveren met sla en citroen.",ingredients:[["Falafelmix of kant-en-klare falafel","Vleesvervangers & Koelvers"],["Couscous","Droogvoer & Pasta"],["Komkommer","Groente & Fruit"],["Sla (romaine of ijsberg)","Groente & Fruit"],["Soja- of kokosyoghurt","Plantbased zuivel"],["Knoflook","Groente & Fruit"],["Citroen","Groente & Fruit"]]},
+{rid:7,name:"Groentesoep met verse tortellini",time:30,tags:["soep","comfort"],steps:"Fruit soepgroenten en prei, voeg bouillon toe en kook 15 min. Voeg tortellini toe en kook nog 5 minuten. Bestrooien met kruiden.",ingredients:[["Verse vegan tortellini","Vleesvervangers & Koelvers"],["Soepgroentemix","Groente & Fruit"],["Bouillonblokjes","Kruiden & Sauzen"],["Prei","Groente & Fruit"],["Oregano en basilicum","Kruiden & Sauzen"],["Verse kruiden","Groente & Fruit"]]},
+{rid:8,name:"Quinoa-bowl met geroosterde groente",time:35,tags:["vers","meal-prep"],steps:"Rooster pompoen en bloemkool 25 min op 200°C met kikkererwten. Kook quinoa. Maak tahindressing, eroverheen met rucola.",ingredients:[["Quinoa","Droogvoer & Pasta"],["Pompoen","Groente & Fruit"],["Bloemkool","Groente & Fruit"],["Kikkererwten","Blik & Glazen (conserven)"],["Tahin","Kruiden & Sauzen"],["Rucola","Groente & Fruit"]]},
+{rid:9,name:"Vegan lasagna",time:60,tags:["Italiaans","weekend"],steps:"Fruit ui en groente, voeg linzen en tomaten toe. Laagjes in ovenschotel met bechamel ernaartussen, kaas erover. 40 min op 180°C.",ingredients:[["Lasagnabladen","Droogvoer & Pasta"],["Groene linzen","Blik & Glazen (conserven)"],["Tomatenblokjes","Blik & Glazen (conserven)"],["Winterpeen en selderij","Groente & Fruit"],["Plantbased bechamel","Plantbased zuivel"],["Vegan geraspte kaas","Plantbased zuivel"],["Uien","Groente & Fruit"]]},
+{rid:10,name:"Pad thai met pinda's",time:25,tags:["Aziatisch","snel"],steps:"Week noedels. Bak tofu, roerbak groente en tauge met soja/tamarinde. Meng met noedels, pinda erover, limoen uitgeknepd.",ingredients:[["Rijstnoedels","Droogfoer & Pasta"],["Stevige tofu","Vleesvervangers & Koelvers"],["Taugé","Groente & Fruit"],["Roerbakgroenten","Groente & Fruit"],["Pinda's","Overig"],["Limoen","Groente & Fruit"],["Tamarinde- of sojasaus","Kruiden & Sauzen"]]},
+{rid:11,name:"Havermoutpannenkoeken met bosbessen",time:25,tags:["zoet","snel"],steps:"Blend havermout, banaan en melk tot beslag. Bak pannenkoeken in olijfolie, serveren met lauw bosbessen en siroop.",ingredients:[["Havermout","Droogvoer & Pasta"],["Haver- of sojamelk","Plantbased zuivel"],["Bananen of appel","Groente & Fruit"],["Diepvriesbosbessen","Diepvries","fridgeOk"],["Ahornsiroop","Kruiden & Sauzen"]]},
+{rid:12,name:"Hartige taart met bladerdeeg en groentevulling",time:45,tags:["hartig","weekend"],steps:"Fruit prei en paprika, meng met silken tofu en roomkaas. Leg in de met bladerdeeg beklede vorm, 30 min bakken op 200°C (bladerdeeg dezelfde dag verwerken).",ingredients:[["Bladerdeeg (verse variant)","Brood & Bakkerij","sameDay"],["Prei en paprika","Groente & Fruit"],["Silken tofu","Vleesvervangers & Koelvers"],["Vegan roomkaas","Plantbased zuivel"],["Vers kruidenmengsel","Groente & Fruit"]]}];
+
+var CATS=["Groente & Fruit","Vleesvervangers & Koelvers","Plantbased zuivel","Brood & Bakkerij","Pasta","Aziatisch","Droogvoer","Blik & Glazen (conserven)","Kruiden & Sauzen","Diepvries","Overig"];
+var STORES=["Lidl","Jumbo","Albert Heijn","Dirk","Ekoplaza (bio)","Turkse/wereldwinkel"];
+
+// ---------- State ----------
+var S={
+ tab:load("tab","menu"),
+ menu:load("menu",[]),            // [{id, rid}]
+ stock:load("stock",[]),          // [{id,name}]
+ store:load("store","Lidl"),
+ extra:load("extra",[]),           // [{id,name,cat}]
+ checked:load("checked",{}),
+ removed:load("removed",[]),       // [{name,cat}]
+ ratings:load("ratings",{}),        // rid -> {stars,note,count}
+ excluded:load("excluded",[]),
+ custom:load("custom",[]),         // gegenereerde + eigen recepten [{rid,name,time,tags,ingredients,url,own,generated}]
+ nextRid:load("nextRid",1000),
+ tagSel:"", q:"", editRid:null, sync:load("sync",{token:"",gistId:""}), savedAt:load("savedAt",0), lastSync:load("lastSync",0), lastSyncStatus:load("lastSyncStatus",""), showAdd:false, addDraft:{name:"",time:"",tags:"",url:"",paste:"",steps:"",ingredients:[{item:"",cat:"Overig",qty:""}]},
+ open:{},
+ showExcluded:false, reviewRid:null, reviewDraft:{stars:0,note:""},
+ stockInput:{name:""}, extraInput:{name:"",cat:"Overig"}
+};
+
+function persist(noStamp){
+ ["tab","menu","stock","store","extra","checked","removed","ratings","excluded","custom","nextRid","sync","savedAt"].forEach(function(k){save(k,S[k])});
+ if(!noStamp)S.savedAt=Date.now();
+ if(!noStamp)schedulePush();
+}
+
+function allRecipes(){
+ var seen={},out=[];
+ S.custom.concat(RECIPE_BUILTIN).forEach(function(r){
+   if(seen[r.rid||r.name])return; seen[r.rid||r.name]=1;
+   out.push(r);
+ });
+ return out;
+}
+function recipeById(rid){return allRecipes().filter(function(r){return String(r.rid)===String(rid)||r.name===rid})[0]}
+function uid(){S.nextRid++;return S.nextRid}
+function slug(s){return String(s).trim().toLowerCase()}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function normCat(cat,name){
+ if(cat==="Droogvoer & Pasta"||cat==="Droogfoer & Pasta"){
+  var s=slug(name||"");
+  if(/(noedel|noodle|mihoen|ramen)/.test(s))return "Aziatisch";
+  if(/(pasta|penne|fusilli|lasagna|spaghetti|macaroni|tagliatelle|tortellini)/.test(s))return "Pasta";
+  return "Droogvoer";
+ }
+ return cat;
+}
+var QTY={};
+[["pasta (penne of fusilli)","160 g"],["verse spinazie","200 g"],["zongedroogde tomaten","75 g"],["kokos- of haverroom","200 ml"],["knoflook","2 tenen"],["voedingsgist","2 el"],
+["rode linzen","200 g"],["kokosmelk","400 ml"],["tomatenblokjes","400 g"],["uien","1 grote"],["gember","2 cm"],["kerriepoeder en kurkuma","1 el"],["verse koriander","1 bosje"],
+["champignons","250 g"],["winterpeen en knolselderij","250 g"],["rode wijn of bouillon","250 ml"],["sojasaus","2 el"],["vers brood erbij","1 stokje"],["aardappelen","500 g"],
+["zwarte bonen","240 g"],["rijst","125 g"],["mais","150 g"],["rode paprika","1 stuks"],["komkommer","0.5 stuks"],["avocado","1 stuks"],["limoen","1 stuks"],["taco-kruiden","1 zakje"],
+["stevige tofu","200 g"],["noedels","160 g"],["paksoi","1 stuks"],["paprika en wortels","250 g"],["sesamolie en sesamzaad","2 el"],
+["falafelmix of kant-en-klare falafel","200 g"],["couscous","150 g"],["sla (romaine of ijsberg)","1 krop"],["soja- of kokosyoghurt","200 g"],["citroen","1 stuks"],
+["verse vegan tortellini","250 g"],["soepgroentemix","300 g"],["bouillonblokjes","1 stuk"],["prei","1 stuks"],["oregano en basilicum","1 el"],["verse kruiden","1 bosje"],
+["quinoa","120 g"],["pompoen","400 g"],["bloemkool","1 kleine"],["kikkererwten","240 g"],["tahin","2 el"],["rucola","75 g"],
+["lasagnabladen","200 g"],["groene linzen","240 g"],["winterpeen en selderij","250 g"],["plantbased bechamel","400 ml"],["vegan geraspte kaas","75 g"],
+["rijstnoedels","160 g"],["taugé","100 g"],["roerbakgroenten","300 g"],["pinda's","40 g"],["tamarinde- of sojasaus","2 el"],
+["havermout","150 g"],["haver- of sojamelk","250 ml"],["bananen of appel","2 stuks"],["diepvriesbosbessen","150 g"],["ahornsiroop","2 el"],
+["bladerdeeg (verse variant)","1 pak"],["prei en paprika","250 g"],["silken tofu","200 g"],["vegan roomkaas","125 g"],["vers kruidenmengsel","1 el"],
+["pasta (fusilli)","160 g"],["zoete aardappel","300 g"],["broccoli","1 stronk"],["spitskool","1 kleine"],["aubergine","1 stuks"],["courgette","1 stuks"],["wortels","250 g"],["paprika","1 stuks"],["snijbonen","200 g"],["spinazie","200 g"],["tempeh","150 g"],["vleesvervanger","200 g"],["vleesvervangers (blokjes)","200 g"],["seitan","150 g"],["witte bonen","240 g"],
+["curry- of kerriepoeder","1 el"],["tomatenblokjes of passata","400 g"],["olijfolie en italiaanse kruiden","2 el"],["sesamolie","1 el"],["sesamzaad","1 el"],["verse tijm of rozemarijn","1 el"],["tahin of hummus","2 el"],["wraps (groot)","2 stuks"],["plantaardige yoghurt of guacamole","150 g"],["sla","1 krop"],["oregano","1 el"],["bulgur","120 g"]
+].forEach(function(x){QTY[slug(x[0])]=x[1]});
+function scaleQty(q,port){
+ var m=q.match(/^([\d.,]+)\s*(.*)$/);if(!m)return q;
+ var f=(port||2)/2;if(f===1)return q;
+ var n=parseFloat(m[1].replace(",",".")),v=n*f;
+ v=Math.round(v*2)/2;
+ var vs=(v%1===0)?String(Math.round(v)):String(v).replace(".",",");
+ return vs+(m[2]?" "+m[2]:"");
+}
+function qtyLabel(item,port,cust){var q=(cust||"").trim()||QTY[slug(item)];return q?scaleQty(q,port):""}
+
+function stockMatches(name){
+ var n=slug(name).split(" ")[0],nm=slug(name);
+ return S.stock.some(function(s){
+   var si=slug(s.name);
+   return si.length>2&&(nm.indexOf(si)>=0||si.indexOf(n)>=0);
+ });
+}
+
+// ---------- Generator ----------
+function rnd(a){return a[Math.floor(Math.random()*a.length)]}
+var G={veg:["Zoete aardappel","Pompoen","Bloemkool","Broccoli","Paksoi","Spitskool","Aubergine","Courgette","Wortels","Spinazie","Paprika","Snijbonen"],
+protein:["Kikkererwten","Rode linzen","Zwarte bonen","Witte bonen","Stevige tofu","Tempeh","Vleesvervangers (blokjes)","Seitan"],
+grain:["Rijst","Pasta (fusilli)","Noedels","Couscous","Quinoa","Bulgur","Aardappelen"]};
+function generateNew(){
+ var kinds=[
+  {k:"Curry met #v en #p",t:35,tg:["curry","gegenereerd"],extra:[["Kokosmelk","Blik & Glazen (conserven)"],["Curry- of kerriepoeder","Kruiden & Sauzen"],["Verse koriander","Groente & Fruit"]]},
+  {k:"Pasta met #v en #p",t:20,tg:["pasta","gegenereerd"],extra:[["Tomatenblokjes of passata","Blik & Glazen (conserven)"],["Olijfolie en Italiaanse kruiden","Kruiden & Sauzen"]]},
+  {k:"Roerbakschotel met #v en #p",t:25,tg:["wok","gegenereerd"],extra:[["Sojasaus","Kruiden & Sauzen"],["Sesamolie","Kruiden & Sauzen"],["Sesamzaad","Overig"]]},
+  {k:"Maaltijdsoep met #v en #p",t:30,tg:["soep","gegenereerd"],extra:[["Bouillonblokjes","Kruiden & Sauzen"],["Tomatenblokjes","Blik & Glazen (conserven)"],["Vers brood erbij","Brood & Bakkerij"]]},
+  {k:"Stoofpot met #v en #p",t:50,tg:["stoof","gegenereerd"],extra:[["Tomatenblokjes","Blik & Glazen (conserven)"],["Verse tijm of rozemarijn","Groente & Fruit"]]},
+  {k:"Bowl met #v, #p en #g",t:25,tg:["vers","gegenereerd"],extra:[["Tahin of hummus","Kruiden & Sauzen"],["Citroen","Groente & Fruit"]]},
+  {k:"Wraps met #v en #p",t:20,tg:["snel","gegenereerd"],extra:[["Wraps (groot)","Brood & Bakkerij"],["Plantaardige yoghurt of guacamole","Plantbased zuivel"],["Sla","Groente & Fruit"]],grain:"Wraps (groot)"},
+  {k:"Ovenschotel met #v en #p",t:45,tg:["oven","gegenereerd"],extra:[["Tomatenblokjes","Blik & Glazen (conserven)"],["Vegan geraspte kaas","Plantbased zuivel"],["Oregano","Kruiden & Sauzen"]]}
+ ];
+ var tpl=rnd(kinds),veg=rnd(G.veg),protein=rnd(G.protein),grain=tpl.grain||rnd(G.grain);
+ var veg2=rnd(G.veg.filter(function(v){return v!==veg}));
+ var name=tpl.k.replace("#v",veg.toLowerCase()).replace("#p",protein.toLowerCase()).replace("#g",grain.toLowerCase());
+ var ing=[[veg,"Groente & Fruit"],[veg2,"Groente & Fruit"]];
+ var proteinCat=["Kikkererwten","Rode linzen","Zwarte bonen","Witte bonen"].indexOf(protein)>=0?"Blik & Glazen (conserven)":"Vleesvervangers & Koelvers";
+ ing.push([protein,proteinCat]);
+ if(tpl.k.indexOf("#g")>=0||tpl.grain)ing.push([grain,grain==="Wraps (groot)"?"Brood & Bakkerij":normCat("Droogvoer & Pasta",grain)]);
+ tpl.extra.forEach(function(e){ing.push(e)});
+ S.custom.unshift({rid:uid(),name:name,time:tpl.t,tags:tpl.tg,generated:true,ingredients:ing});
+ persist();render();
+}
+
+// ---------- Parser voor geplakte ingrediënten ----------
+var UNITS=new Set(["g","gr","gram","kg","mg","ml","dl","cl","l","el","tl","eetlepel","theelepel","st","stuk","stuks","bos","bosje","blik","blikken","pot","potje","potjes","pak","pakje","pakjes","snufje","handvol","teen","tenen","plakje","plakjes","sneetje","sneetjes","bakje","bakjes","schaaltje","doosje","beetje","flinke","verse","vers","kleine","grote","groot","middelgrote","een","één"]);
+function guessCat(name){
+ var s=slug(name);
+ if(s==="water")return "";
+ if(s.indexOf("diepvries")>=0)return "Diepvries";
+ if(/(tofu|tempeh|seitan|falafel|vleesvervanger|burger|worstje|gehakt|spek|braadworst)/.test(s))return "Vleesvervangers & Koelvers";
+ if(/(brood|wrap|tortilla|pita|pizzadeeg|bladerdeeg)/.test(s))return "Brood & Bakkerij";
+ if(/(yoghurt|drink|melk|room|kaas|boter|bechamel)/.test(s)&&!/pindakaas/.test(s))return "Plantbased zuivel";
+ if(/(tomatenblokjes|passata|bonen|kikkererwten|linzen|mais|kokosmelk|olijven|hummus)/.test(s))return "Blik & Glazen (conserven)";
+ if(/(pasta|penne|fusilli|lasagna|spaghetti|macaroni|tagliatelle|tortellini)/.test(s)&&!/(noedel|noodle)/.test(s))return "Pasta";
+ if(/(noedel|noodle|mihoen|ramen)/.test(s))return "Aziatisch";
+ if(/(rijst|couscous|quinoa|bulgur|bloem|meel|havermout)/.test(s))return "Droogvoer";
+ if(/(olie|azijn|kruid|specerij|zout|peper|curry|kerrie|tahin|sesam|siroop|pesto|bouillon|sojasaus|tamarinde|mayonaise|mosterd|chilisaus)/.test(s))return "Kruiden & Sauzen";
+ if(/(appel|banaan|citroen|limoen|peer|aardbei|bosbes|framboos|mango|ui|uien|knoflook|gember|wortel|paprika|tomaat|komkommer|courgette|aubergine|spinazie|sla|kool|bloemkool|broccoli|prei|pompoen|aardappel|champignon|paddenstoel|taug|paksoi|erwt|snijboon|avocado)/.test(s))return "Groente & Fruit";
+ return "Overig";
+}
+function parsePaste(text){
+ var out=[],seen={};
+ var FRAC=["\u00bd","\u00bc","\u00be","\u2153","\u2154"];
+ function isQty(t){return /^\d+([.,]\d+)?([\/\-]\d+)?$/.test(t)||/^\d/.test(t)||/^0?[.,]\d+$/.test(t)||FRAC.indexOf(t)>=0}
+ function isUnit(t){return UNITS.has(t.toLowerCase().replace(/[.,]$/,""))}
+ function qtyOnlyLine(l){
+   var w=l.split(/\s+/);
+   return w.length>0&&w.every(function(t){return isQty(t)||isUnit(t)});
+ }
+ String(text||"").split(/\r?\n/).forEach(function(raw){
+   var l=raw.replace(/^[\s*\-•\u2022\d.)]+/,"").trim();
+   if(l.length<2||/^(ingredi|bereiding:|recept:)/i.test(l))return;
+   if(qtyOnlyLine(l))return;
+   var w=l.split(/\s+/),i=0;
+   while(i<w.length&&(isQty(w[i].toLowerCase().replace(/[.,]$/,""))||isUnit(w[i]))){i++}
+   var nm=w.slice(i).join(" ").trim()||l;
+   if(!nm||qtyOnlyLine(nm))return;
+   var key=slug(nm);
+   if(seen[key])return;seen[key]=1;
+   var c=guessCat(nm);
+   if(!c)return; // bijv. water
+   out.push({item:nm.charAt(0).toUpperCase()+nm.slice(1),cat:c});
+ });
+ return out;
+}
+
+// ---------- Acties ----------
+function setTab(t){S.tab=t;persist();render()}
+function addStock(){
+ var n=S.stockInput.name.trim();if(!n)return;
+ S.stock.push({id:uid(),name:n});S.stockInput.name="";persist();render();
+}
+function delStock(id){S.stock=S.stock.filter(function(s){return s.id!==id});persist();render()}
+function addExtra(){
+ var n=S.extraInput.name.trim();if(!n)return;
+ S.extra.push({id:uid(),name:n,cat:S.extraInput.cat});S.extraInput.name="";persist();render();
+}
+function delExtra(id){S.extra=S.extra.filter(function(s){return s.id!==id});persist();render()}
+function choose(rid){if(S.menu.length>=3)return;S.menu.push({id:uid(),rid:String(rid),portions:2});persist();render()}
+function setPortions(id,d){var m=S.menu.find(function(x){return String(x.id)===String(id)});if(!m)return;m.portions=Math.max(2,Math.min(12,(m.portions||2)+d));persist();render()}
+function setTagSel(t){S.tagSel=t;render()}
+var TAG_SEED=["zomer","winter","lente","herfst","weekend","doordeweeks","snel","comfort","budget","meal-prep","feest"];
+function tagRegistry(){var m={};TAG_SEED.forEach(function(t){m[slug(t)]=t});allRecipes().forEach(function(r){(r.tags||[]).forEach(function(t){m[slug(t)]=t.trim()})});return Object.keys(m).map(function(k){return m[k]}).sort(function(a,b){return a.localeCompare(b)})}
+function addTag(t){var d=S.addDraft.tags||"";var arr=d.split(",").map(function(x){return x.trim()}).filter(Boolean);if(arr.some(function(x){return slug(x)===slug(t)}))return;arr.push(t);S.addDraft.tags=arr.join(", ");var f=document.getElementById("addTags");if(f)f.value=S.addDraft.tags;render()}
+
+function unchoose(id){S.menu=S.menu.filter(function(m){return m.id!==id});persist();render()}
+function toggleExclude(rid){rid=String(rid);S.excluded=S.excluded.indexOf(rid)>=0?S.excluded.filter(function(x){return x!==rid}):S.excluded.concat([rid]);persist();render()}
+function toggleOpen(rid){rid=String(rid);S.open[rid]=!S.open[rid];render()}
+function closeAll(){Object.keys(S.open).forEach(function(k){S.open[k]=false});render()}
+function toggleCheck(k){S.checked[k]=!S.checked[k];persist();render();/* checkbox herstelt zichzelf */}
+function haveAtHome(name,cat){
+ S.removed.push({name:name,cat:cat||"Overig"});
+ if(!S.stock.some(function(s){return slug(s.name)===slug(name)}))S.stock.push({id:uid(),name:name});
+ persist();render();
+}
+function unRemove(name){
+ S.removed=S.removed.filter(function(r){return r.name!==name});
+ S.stock=S.stock.filter(function(s){return slug(s.name)!==slug(name)});
+ persist();render();
+}
+function setStore(s){S.store=s;persist();render()}
+function openReview(rid){S.reviewRid=String(rid);S.reviewDraft={stars:(S.ratings[rid]||{}).stars||0,note:(S.ratings[rid]||{}).note||""};render()}
+function setReviewStars(n){S.reviewDraft.stars=n;render()}
+function cancelReview(){S.reviewRid=null;render()}
+function saveReview(){
+ var rid=S.reviewRid,old=S.ratings[rid]||{};
+ S.ratings[rid]={stars:S.reviewDraft.stars,note:S.reviewDraft.note.trim(),count:(old.count||0)+1};
+ S.menu=S.menu.filter(function(m){return String(m.rid)!==rid});
+ S.reviewRid=null;persist();render();
+}
+function toggleAdd(){S.showAdd=!S.showAdd;if(!S.showAdd)S.editRid=null;render()}
+function editRecipe(rid){var r=recipeById(rid);if(!r)return;S.editRid=String(r.rid||r.name);S.addDraft={name:r.name,time:String(r.time),tags:(r.tags||[]).join(", "),url:r.url||"",paste:"",steps:(r.steps||""),ingredients:r.ingredients.map(function(i){return{item:i[0],cat:normCat(i[1],i[0]),qty:(i[3]||"")}})};S.tab="menu";S.showAdd=true;render()}
+function cancelEdit(){S.editRid=null;S.showAdd=false;S.addDraft={name:"",time:"",tags:"",url:"",paste:"",steps:"",ingredients:[{item:"",cat:"Overig",qty:""}]};render()}
+function quickAddIng(rid,item,cat){
+ var r=recipeById(rid);if(!r)return;
+ var rid2=String(r.rid||r.name);
+ var ex=S.custom.filter(function(c){return String(c.rid)===rid2})[0];
+ var rec=ex||Object.assign({},r,{edited:true});
+ rec.ingredients=(ex?ex.ingredients:r.ingredients).map(function(i){return i.slice()});
+ if(rec.ingredients.some(function(i){return slug(i[0])===slug(item)}))return;
+ rec.ingredients.push([item,cat]);
+ if(!ex)S.custom.unshift(rec);
+ persist();render();
+}
+function addIngRow(){S.addDraft.ingredients.push({item:"",cat:"Overig",qty:""});render()}
+function delIngRow(i){S.addDraft.ingredients.splice(i,1);render()}
+function parseNow(){
+ var p=parsePaste(S.addDraft.paste);
+ if(p.length)S.addDraft.ingredients=p;
+ render();
+}
+function saveOwn(){
+ var d=S.addDraft;if(!d.name.trim())return;
+ var xs=d.ingredients.map(function(i){return{i0:i.item.trim(),cat:i.cat,q:(i.qty||"").trim()}}).filter(function(x){return x.i0});
+ if(!xs.length)return;
+ var orig=S.editRid?(recipeById(S.editRid)||{}):{};
+ var flags={};(orig.ingredients||[]).forEach(function(i){if(i[2])flags[slug(i[0])]=i[2]});
+ var ing=xs.map(function(x){var a=[x.i0,x.cat,flags[slug(x.i0)]||""];if(x.q)a.push(x.q);return a});
+ if(S.editRid){
+  var rec={rid:S.editRid,name:d.name.trim(),time:parseInt(d.time,10)||parseInt(orig.time,10)||30,tags:(d.tags||"").split(",").map(function(t){return t.trim()}).filter(Boolean),url:(d.url||"").trim()||(orig.url||""),steps:(d.steps||"").trim(),own:!!orig.own,generated:false,edited:true,ingredients:ing};
+  var done=false;
+  S.custom=S.custom.map(function(c){if(String(c.rid)===String(S.editRid)){done=true;return Object.assign({},c,rec)}return c});
+  if(!done)S.custom.unshift(rec);
+  S.editRid=null;
+ } else {
+  S.custom.unshift({rid:uid(),name:d.name.trim(),time:parseInt(d.time,10)||30,tags:d.tags.split(",").map(function(t){return t.trim()}).filter(Boolean).concat(["eigen recept"]),url:d.url.trim(),steps:(d.steps||"").trim(),own:true,ingredients:ing});
+ }
+ S.addDraft={name:"",time:"",tags:"",url:"",paste:"",steps:"",ingredients:[{item:"",cat:"Overig",qty:""}]};
+ S.showAdd=false;persist();render();
+}
+
+// ---------- Boodschappenlijst ----------
+function shoppingList(){
+ var map={};
+ S.menu.forEach(function(m){
+   var r=recipeById(m.rid);if(!r)return;
+   r.ingredients.forEach(function(ing){
+     var item=ing[0],cat=normCat(ing[1],item),fridgeOk=ing[2]==="fridgeOk",sameDay=ing[2]==="sameDay",cust=(ing[3]||"").trim();
+     if(stockMatches(item))return;
+     var p=m.portions||2;
+     if(!map[item])map[item]={item:item,cat:cat,fridgeOk:fridgeOk,sameDay:sameDay,src:[],port:2,cust:cust};
+     if(cust&&!map[item].cust)map[item].cust=cust;
+     map[item].src.push(r.name+" ("+p+" pers.)");
+     if(p>map[item].port)map[item].port=p;
+   });
+ });
+ var removed=S.removed.map(function(r){return slug(r.name)});
+ return Object.keys(map).map(function(k){return map[k]}).filter(function(l){return removed.indexOf(slug(l.item))<0});
+}
+
+// ---------- Sync (GitHub Gist) ----------
+var SYNC_STATUS="";
+function setSyncStatus(t){SYNC_STATUS=t;S.lastSyncStatus=t;var e=document.getElementById("syncStatus");if(e)e.textContent=t}
+function syncOk(msg){S.lastSync=Date.now();setSyncStatus(msg);save("lastSync",S.lastSync);save("lastSyncStatus",S.lastSyncStatus)}
+function fmtSync(t){var d=new Date(t);return d.toLocaleDateString("nl-NL")+" "+d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"})}
+function syncPayload(){return {app:"weekmenu-sync-v1",t:Date.now(),menu:S.menu,stock:S.stock,store:S.store,extra:S.extra,checked:S.checked,removed:S.removed,ratings:S.ratings,excluded:S.excluded,custom:S.custom,nextRid:S.nextRid,gistId:(S.sync&&S.sync.gistId)||""}}
+function applyPayload(p){
+ if(!p||!p.menu)return false;
+ S.menu=p.menu;S.stock=p.stock||[];S.store=p.store||STORES[0];S.extra=p.extra||[];
+ S.checked=p.checked||{};S.removed=p.removed||[];S.ratings=p.ratings||{};S.excluded=p.excluded||[];
+ S.custom=p.custom||[];S.nextRid=p.nextRid||1000;
+ if(p.gistId&&S.sync&&!S.sync.gistId)S.sync.gistId=p.gistId;
+ persist(true);return true;
+}
+function ghHeaders(){return {Authorization:"Bearer "+S.sync.token,Accept:"application/vnd.github+json","Content-Type":"application/json"}}
+function gh(method,url,body){
+ return fetch(url,{method:method,headers:ghHeaders(),body:body?JSON.stringify(body):undefined})
+  .then(function(r){if(!r.ok)throw new Error("GitHub "+r.status);return r.json()});
+}
+function findSyncGist(){
+ return gh("GET","https://api.github.com/gists?per_page=100")
+  .then(function(list){return (list||[]).filter(function(g){return g.description==="weekmenu-sync"&&g.files&&g.files["weekmenu.json"]})[0]||null});
+}
+function resolveGist(){return gh("GET","https://api.github.com/gists?per_page=100").then(function(list){
+ var gs=(list||[]).filter(function(g){return g.description==="weekmenu-sync"&&g.files&&g.files["weekmenu.json"]});
+ if(!gs.length)return null;
+ gs.sort(function(a,b){return String(b.updated_at||"").localeCompare(String(a.updated_at||""))});
+ return gs[0];
+ })}
+function countMsg(){return "weekmenu: "+S.menu.length+" recepten, "+(S.stock.length+S.extra.length)+" extra\u00b7items op lijst"}
+function pushNow(){
+ if(!S.sync||!S.sync.token)return Promise.reject(new Error("Geen token"));
+ var content=JSON.stringify(syncPayload());
+ var build=function(id){return gh("PATCH","https://api.github.com/gists/"+id,{description:"weekmenu-sync",files:{"weekmenu.json":{content:content}}})};
+ return resolveGist().then(function(g){
+  if(!g){
+   return gh("POST","https://api.github.com/gists",{description:"weekmenu-sync",public:false,files:{"weekmenu.json":{content:content}}})
+    .then(function(g){S.sync.gistId=g.id;persist(true);syncOk("✅ Gist aangemaakt & geüpload ("+countMsg()+")");render()});
+  }
+  if(S.sync.gistId!==g.id)S.sync.gistId=g.id;
+  persist(true);
+  return build(g.id).then(function(){syncOk("✅ Geüpload naar GitHub ("+countMsg()+")");render()});
+ });
+}
+function pullNow(){
+ if(!S.sync||!S.sync.token)return Promise.reject(new Error("Geen token"));
+ var grab=function(id){return gh("GET","https://api.github.com/gists/"+id)};
+ return resolveGist().then(function(g){
+  if(!g){setSyncStatus("Nog niets op GitHub gevonden. Wijzig eerst iets en druk op Sync.");render();return null}
+  if(S.sync.gistId!==g.id)S.sync.gistId=g.id;
+  persist(true);return doPull(grab(g.id));
+ });
+ function doPull(gp){
+  return gp.then(function(g){
+   var raw=g&&g.files&&g.files["weekmenu.json"]&&g.files["weekmenu.json"].content;
+   if(!raw){setSyncStatus("Gist gevonden maar leeg; druk nogmaals op Sync om te uploaden.");return "empty"}
+   var p;try{p=JSON.parse(raw)}catch(e){throw new Error("Ongeldige data")}
+   S.sync.gistId=g.id;persist(true);
+   if(!p.t||p.t>S.savedAt||!S.savedAt){applyPayload(p);S.savedAt=p.t||Date.now();persist(true);syncOk("⬇️ Data van GitHub opgehaald · weekmenu: "+S.menu.length+" recepten");render();return "pulled"}
+   setSyncStatus("GitHub is niet nieuwer dan dit apparaat");return "same";
+  });
+ }
+}
+function forcePull(){
+ if(!S.sync||!S.sync.token){alert("Vul eerst je GitHub-token in.");return}
+ setSyncStatus("⏳ Forceren ophalen...");
+ var after=function(g){
+  var raw=g&&g.files&&g.files["weekmenu.json"]&&g.files["weekmenu.json"].content;
+  if(!raw){setSyncStatus("Geen weekmenu-data op GitHub gevonden.");return}
+  var p;try{p=JSON.parse(raw)}catch(e){setSyncStatus("❌ Ongeldige data op GitHub");return}
+  if(g.id)S.sync.gistId=g.id;
+  applyPayload(p);S.savedAt=p.t||Date.now();persist(true);
+  syncOk("⬇️ Data geforceerd opgehaald · weekmenu: "+S.menu.length+" recepten");
+  render();alert("✅ Opgehaald: "+S.menu.length+" weekmenu-recepten.")
+ };
+ resolveGist().then(function(g){if(!g)return null;if(S.sync.gistId!==g.id)S.sync.gistId=g.id;persist(true);return gh("GET","https://api.github.com/gists/"+g.id)})
+ .then(after).catch(function(e){setSyncStatus("❌ "+e.message)});
+}
+function syncNow(){
+ if(!S.sync||!S.sync.token){alert("Vul eerst je GitHub Personal Access Token in (rechten: gists).");return}
+ setSyncStatus("⏳ Sync bezig...");
+ pullNow().then(function(res){
+  if(res==="same"||res==="empty"||res===null){return pushNow()}
+ }).catch(function(e){setSyncStatus("❌ "+e.message)});
+}
+var PUSH_TIMER=null;
+function schedulePush(){if(!S.sync||!S.sync.token)return;clearTimeout(PUSH_TIMER);PUSH_TIMER=setTimeout(function(){pushNow().catch(function(e){setSyncStatus("❌ Auto-upload mislukt: "+e.message)})},4000)}
+function exportData(){
+ var a=document.createElement("a");
+ a.href="data:application/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(syncPayload()));
+ a.download="weekmenu-data.json";document.body.appendChild(a);a.click();a.remove();
+}
+function importData(inp){
+ var f=inp.files&&inp.files[0];if(!f)return;
+ var rd=new FileReader();
+ rd.onload=function(){try{var p=JSON.parse(rd.result);if(!applyPayload(p)){alert("Dit bestand bevat geen herkenbare weekmenu-data.");return}S.savedAt=p.t||Date.now();persist(true);schedulePush();render();alert("✅ Data geïmporteerd (weekmenu: "+S.menu.length+" recepten).")}catch(e){alert("Ongeldig JSON-bestand.")}};
+ rd.readAsText(f);
+}
+
+// ---------- Rendering ----------
+function starsHtml(v,rid){
+ var h='<span class="stars">';
+ for(var i=1;i<=5;i++)h+= rid!=null?'<span onclick="setReviewStars('+i+')">'+(i<=v?"★":'<span class="off">★</span>')+'</span>':(i<=v?"★":'<span class="off">★</span>');
+ return h+"</span>";
+}
+function healthChips(r,rid){
+ var ridE=esc(String(rid||r.rid||r.name));
+ var prot=r.ingredients.filter(function(i){return /(tofu|tempeh|seitan|linzen|bonen|kikkererwten|quinoa|falafel|vleesvervanger|braadworst|spek|burger|kaas|yoghurt|amandeldrink|melk)/i.test(i[0])||normCat(i[1],i[0])==="Vleesvervangers & Koelvers"}).length;
+ var veg=r.ingredients.filter(function(i){return normCat(i[1],i[0])==="Groente & Fruit"}).length;
+ return (prot>=1?chip("eiwitbron ✔","green"):'<span class="chip red" style="cursor:pointer" title="Tik om dit op te lossen" onclick="toggleOpen(\''+ridE+'\')">⚠ geen eiwitbron</span>')+" "+
+  (veg>=2?chip(veg+"× groente ✔","green"):chip("⚠ weinig groente ("+veg+"×)","amber"));
+}
+function stepsParse(t){
+ var s=String(t||"").replace(/\r/g,"").trim();if(!s)return [];
+ var lines=s.split(/\n+/).map(function(x){return x.trim()}).filter(function(l){return l&&!/^(bereidingswijze|bereiding|werkwijze|stappen|aanwijzingen|instructies|bereiding stap)\s*:?\s*$/i.test(l)});
+ if(!lines.length)return [];
+ var START=/^(?:stap\s*)?\d{1,2}\s*[.)\]:-]/i;
+ var INLINENUM=/\s(?:stap\s*)?\d{1,2}\s*[.)\]:]/i;
+ var stripNum=function(x){return x.replace(/^(?:stap\s*)?\d{1,2}\s*[.)\]:-]\s*/i,"").trim()};
+ if(lines.length===1){
+  var one=lines[0];
+  if(INLINENUM.test(one.slice(1))){
+   return one.replace(new RegExp("\\s(?=(?:stap\\s*)?\\d{1,2}\\s*[.)\\]:])","gi"),"\n").split(/\n+/).map(function(x){return stripNum(x)}).filter(Boolean);
+  }
+  return one.split(/\.\s+/).map(function(x){return x.trim().replace(/^[.\d]+[.)]?\s*/,"").trim().replace(/\.$/,"")+"."}).filter(Boolean);
+ }
+ var NUMONLY=/^(?:stap\s*)?\d{1,2}\s*[.)\]:-]?\s*$/i;
+ if(lines.some(function(l){return START.test(l)||NUMONLY.test(l)})){
+  var out=[];
+  lines.forEach(function(l){
+   if(START.test(l))out.push(stripNum(l));
+   else if(NUMONLY.test(l))out.push("");
+   else if(out.length)out[out.length-1]+=(out[out.length-1]?" ":"")+l;
+   else out.push(l);
+  });
+  return out.filter(Boolean);
+ }
+ return lines;
+}
+function ingDetailHtml(r,port){
+ port=port||2;
+ var prot=r.ingredients.filter(function(i){return /(tofu|tempeh|seitan|linzen|bonen|kikkererwten|quinoa|falafel|vleesvervanger|braadworst|spek|burger|kaas|yoghurt|amandeldrink|melk)/i.test(i[0])||normCat(i[1],i[0])==="Vleesvervangers & Koelvers"}).length;
+ var veg=r.ingredients.filter(function(i){return normCat(i[1],i[0])==="Groente & Fruit"}).length;
+ var hh='<div class="meta" style="margin-top:6px">'+
+  (prot>=1?chip("eiwitbron ✔","green"):'<span class="chip red" style="cursor:pointer" title="Tik op een knop hieronder om dit op te lossen">⚠ geen eiwitbron gevonden</span>')+" "+
+  (veg>=2?chip(veg+"× groente ✔","green"):chip("⚠ weinig groente ("+veg+"×)","amber"))+"</div>";
+ if(prot<1){
+  var ridE=esc(String(r.rid||r.name));
+  hh+='<div class="row" style="flex-wrap:wrap;margin-top:6px;gap:6px;align-items:center"><span class="muted" style="font-size:12px">Tik om op te lossen:</span>'+
+   [["Kikkererwten","Blik & Glazen (conserven)"],["Witte bonen","Blik & Glazen (conserven)"],["Rode linzen","Droogvoer"],["Stevige tofu","Vleesvervangers & Koelvers"],["Tempeh","Vleesvervangers & Koelvers"],["Vleesvervanger","Vleesvervangers & Koelvers"]].map(function(p){return '<button class="btn ghost" style="border-radius:99px;padding:3px 10px;font-size:12px" onclick="quickAddIng(\''+ridE+'\',\''+esc(p[0])+'\',\''+esc(p[1])+'\')">+ '+esc(p[0])+'</button>'}).join("")+'</div>';
+ }
+ var h=hh;
+ if(port>2)h+='<div style="margin-top:6px"><span class="muted" style="font-size:12px">Hoeveelheden hieronder voor <b>'+port+'</b> personen</span></div>';
+ h+='<div style="margin-top:8px;border-top:1px dashed #e5e5e5;padding-top:8px"><ul>';
+  r.ingredients.forEach(function(ing){
+  var ig=qtyLabel(ing[0],port,ing[3]);
+  h+='<li class="line"><span>• '+(ig?'<b>'+esc(ig)+'</b> ':'')+esc(ing[0])+'</span><span class="muted">'+esc(normCat(ing[1],ing[0]))+'</span>'+
+     (ing[1]==="Diepvries"?(ing[2]==="fridgeOk"?chip("❄️ koelkast bewaren, prima","amber"):chip("⚠ geen vriezer: alleen op de dag zelf","red")):"")+
+     "</li>";
+ });
+ h+="</ul>";
+ if(r.steps){
+  h+='<p class="muted" style="margin:6px 0 2px"><b>Bereidingswijze</b></p><ol style="margin:0;padding-left:20px">';
+  stepsParse(r.steps).forEach(function(step){
+    h+='<li style="margin-bottom:4px;font-size:14px">'+esc(step)+"</li>";
+  });
+  h+="</ol>";
+ }
+ if(r.url)h+='<a class="muted" href="'+esc(r.url)+'" target="_blank" rel="noreferrer">🔗 recept online</a>';
+ return h+"</div>";
+}
+function chip(txt,tone){return '<span class="chip '+tone+'">'+esc(txt)+'</span>'}
+function catSelect(id,val){
+ var h='<select onchange="draftIng(this,'+id+',1)">';
+ CATS.forEach(function(c){h+='<option'+(c===val?" selected":"")+'>'+esc(c)+'</option>'});
+ return h+"</select>";
+}
+
+function render(){
+ var ae=null;try{ae=document.activeElement&&document.activeElement.id}catch(e){}
+ document.getElementById("tabs").innerHTML=
+  [["menu","📅 Weekmenu"],["boodschappen","🛒 Boodschappen"],["voorraad","🧺 In huis"]].map(function(t){
+   return '<button class="'+(S.tab===t[0]?"active":"")+'" onclick="setTab(\''+t[0]+'\')">'+t[1]+"</button>";
+  }).join("");
+ var el=document.getElementById("app");
+ if(S.tab==="menu")el.innerHTML=renderMenu();
+ else if(S.tab==="boodschappen")el.innerHTML=renderShopping();
+ else el.innerHTML=renderStock();
+ if(S.tab==="menu"){
+  var sb2=document.getElementById("searchBox");
+  if(sb2){sb2.value=S.q;if(ae==="searchBox"){try{sb2.focus();sb2.setSelectionRange(S.q.length,S.q.length)}catch(e){}}}
+ }
+ // herstel formulierwaarden
+ if(S.tab==="menu"&&S.showAdd){
+  var d=S.addDraft;
+  var f=document.getElementById("addName");if(f)f.value=d.name;
+  f=document.getElementById("addTime");if(f)f.value=d.time;
+  f=document.getElementById("addTags");if(f)f.value=d.tags;
+  f=document.getElementById("addUrl");if(f)f.value=d.url;
+  f=document.getElementById("addPaste");if(f)f.value=d.paste;
+  f=document.getElementById("addSteps");if(f)f.value=d.steps;
+ }
+}
+
+function renderMenu(){
+ var h="";
+ h+='<div class="card"><h2>📋 Mijn weekmenu</h2><p class="hint">Je kookt dubbele porties, dus 3 recepten per week is genoeg. Wat je over hebt, wordt automatisch van de boodschappenlijst afgehaald.</p>';
+ if(S.menu.length===0)h+='<p class="muted">Nog geen recepten gekozen. Kies hieronder 👇</p>';
+ S.menu.forEach(function(m,i){
+  var r=recipeById(m.rid);if(!r)return;
+  var days=["ma & di","wo & do","vr, za & zo"][i]||"";
+  h+='<div class="recipe chosen" style="margin-bottom:8px"><div class="rtop"><b style="cursor:pointer" onclick="toggleOpen(\''+esc(String(m.rid))+'\')">'+esc(r.name)+' <span class="muted">'+(S.open[m.rid]?"▾":"▸")+"</span></b><span>"+
+     '<button class="btn ghost" style="margin-right:6px" onclick="editRecipe(\''+esc(String(m.rid))+'\')">✏️ Pas aan</button>'+
+     '<button class="btn soft" style="margin-right:6px" onclick="openReview(\''+esc(String(m.rid))+'\')">Gemaakt? Geef review</button>'+
+     '<button class="btn ghost" onclick="unchoose('+m.id+')">Verwijder</button></span></div>'+
+     '<div class="meta">'+days+' · '+r.time+' min · <span class="muted">tik op de naam voor ingrediënten</span>'+healthChips(r,m.rid)+'</div>'+
+     '<div class="row" style="gap:8px;align-items:center;margin:6px 0"><span class="muted">Porties (visite?):</span>'+
+     '<button class="btn ghost" style="padding:2px 10px" onclick="setPortions('+m.id+',-1)">−</button>'+
+     '<b>'+(m.portions||2)+'</b>'+
+     '<button class="btn ghost" style="padding:2px 10px" onclick="setPortions('+m.id+',1)">+</button>'+
+     ((m.portions||2)>2?chip('± '+((m.portions||2)/2)+'× inkopen voor visite','amber'):'')+'</div>'+
+     (S.open[m.rid]?ingDetailHtml(r,m.portions||2):"")+'</div>';
+ });
+ if(S.menu.length>=3)h+='<p class="hint" style="color:#92400e">✅ Drie recepten is genoeg voor deze week.</p>';
+ h+="</div>";
+
+ if(S.reviewRid){
+  var r=recipeById(S.reviewRid);
+  h+='<div class="card"><h2>⭐ Review: '+(r?esc(r.name):"")+'</h2><p class="hint">Hoge scores komen vaker terug in de aanbevelingen.</p>'+
+     '<p>'+starsHtml(S.reviewDraft.stars,1)+'</p>'+
+     '<div class="row"><textarea id="revNote" rows="2" style="flex:1">'+esc(S.reviewDraft.note)+'</textarea></div>'+
+     '<div class="row" style="margin-top:8px"><button class="btn" onclick="saveReview()">Opslaan</button><button class="btn ghost" onclick="cancelReview()">Annuleren</button></div></div>';
+ }
+
+ // Receptkiezer
+ h+='<div class="card"><div class="row" style="align-items:center"><input class="flex" id="searchBox" placeholder="🔍 Zoek recept, ingredient of tag..." oninput="S.q=this.value;render()" style="margin-bottom:8px">'+
+  (S.q?'<button class="x" title="Wis zoekopdracht" style="font-size:16px;padding:0 4px" onclick="S.q=\'\';render()">✕</button>':"")+'</div><div class="row" style="flex-wrap:wrap;gap:6px">'+
+  '<button class="btn '+(S.tagSel===""?"":"ghost")+'" style="border-radius:99px;padding:4px 12px;font-size:12px" onclick="setTagSel(\'\')">Alles</button>'+
+  tagRegistry().map(function(t){var k=slug(t);return '<button class="btn '+(S.tagSel===k?"":"ghost")+'" style="border-radius:99px;padding:4px 12px;font-size:12px" onclick="setTagSel(\''+esc(k)+'\')">'+esc(t)+'</button>'}).join("")+
+  '</div></div>';
+ h+='<div class="card"><div class="rtop"><h2>🍽️ Recepten</h2><div>'+
+    (S.excluded.length?'<button class="btn ghost" style="margin-right:6px" onclick="S.showExcluded=!S.showExcluded;render()">Afgewezen ('+S.excluded.length+')</button>':"")+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+
+    '<button class="btn ghost" onclick="generateNew()">✨ Genereer nieuw recept</button>'+
+    '<button class="btn ghost" onclick="toggleAdd()">➕ Eigen recept</button></div></div></div>'+
+ (Object.keys(S.open).some(function(k){return S.open[k]})?'<button class="btn ghost" style="border-radius:99px;padding:4px 12px;font-size:12px;margin-top:8px" onclick="closeAll()">Alles samenvouwen</button>':'');
+
+ if(S.showAdd){
+  var d=S.addDraft;
+  h+='<h2 style="font-size:16px;margin:10px 0 8px">'+(S.editRid?'✏️ Recept aanpassen'+(recipeById(S.editRid)?': '+esc(recipeById(S.editRid).name):''):'➕ Eigen recept toevoegen')+'</h2>';
+  h+='<form class="add" onsubmit="return false">'+
+     '<div class="row"><input class="flex" id="addName" placeholder="Naam van het recept *" oninput="S.addDraft.name=this.value"><input id="addTime" placeholder="Min." style="width:80px" oninput="S.addDraft.time=this.value"><input id="addTags" list="tagOptions" placeholder="Tags (komma)" style="width:180px" oninput="S.addDraft.tags=this.value"></div>'+
+'<datalist id="tagOptions">'+tagRegistry().map(function(t){return '<option value="'+esc(t)+'"></option>'}).join("")+'</datalist>'+
+'<div style="margin-top:6px"><span class="muted" style="font-size:12px">Kies of typ:</span> '+
+tagRegistry().map(function(t){return '<button class="btn ghost" style="border-radius:99px;padding:2px 10px;font-size:11px;margin:2px" onclick="addTag(\''+esc(t)+'\')">'+esc(t)+'</button>'}).join("")+'</div>'+
+     '<div class="row" style="margin-top:8px"><input class="flex" id="addUrl" placeholder="Link naar het recept (wordt als bron opgeslagen)" oninput="S.addDraft.url=this.value"></div>'+
+     '<p class="hint" style="margin-top:8px">De app kan websites niet zelf openen. Kopieer de ingrediënten van de site en plak ze hieronder (één per regel): hoeveelheden worden weggefilterd, dubbele regels verwijderd en categorieën automatisch gekozen. Nogmakkelijker: stuur de link in je Vibe-gesprek, dan voegt Vibe het recept meteen toe aan deze app.</p>'+
+     '<textarea id="addPaste" rows="4" placeholder="250 g spaghetti\n1 blik tomatenblokjes\n2 tenen knoflook" oninput="S.addDraft.paste=this.value" style="margin-top:8px"></textarea>'+
+     '<button class="btn soft" style="margin-top:8px" onclick="parseNow()">Ingrediënten verwerken</button>'+
+     '<p class="muted" style="margin:10px 0 2px"><b>Bereidingswijze</b> (optioneel, plak of typ de stappen)</p>'+
+     '<textarea id="addSteps" rows="3" placeholder="1. Fruit de ui... 2. Voeg toe..." oninput="S.addDraft.steps=this.value" style="width:100%"></textarea>'+
+     '<div style="margin-top:10px">'+
+     d.ingredients.map(function(ing,i){
+       return '<div class="row" style="margin-bottom:6px"><input class="flex" value="'+esc(ing.item)+'" placeholder="Ingrediënt" data-ing="'+i+'"><input style="width:110px" value="'+esc(ing.qty||"")+'" placeholder="e.g. 250 g (2 pers.)" data-q="'+i+'"><select onchange="draftSel(this,'+i+')">'+
+       CATS.map(function(c){return '<option'+(c===ing.cat?" selected":"")+'>'+esc(c)+'</option>'}).join("")+'</select><button class="x" onclick="delIngRow('+i+')">✕</button></div>';
+     }).join("")+
+     '</div>'+
+     (S.editRid&&!S.addDraft.ingredients.some(function(i){return /(tofu|tempeh|seitan|linzen|bonen|kikkererwten|quinoa|falafel|vleesvervanger|kaas|yoghurt|melk)/i.test(i.item)||(i.cat||"")==="Vleesvervangers & Koelvers"})?'<div class="row" style="flex-wrap:wrap;margin-top:6px;gap:6px;align-items:center"><span class="muted" style="font-size:12px">⚠ dit recept heeft nog geen eiwitbron, snel toevoegen:</span>'+[["Kikkererwten","Blik & Glazen (conserven)"],["Witte bonen","Blik & Glazen (conserven)"],["Rode linzen","Droogvoer"],["Stevige tofu","Vleesvervangers & Koelvers"],["Tempeh","Vleesvervangers & Koelvers"],["Vleesvervanger","Vleesvervangers & Koelvers"]].map(function(p){return '<button class="btn ghost" style="border-radius:99px;padding:3px 10px;font-size:12px" onclick="S.addDraft.ingredients.push({item:\''+esc(p[0])+'\',cat:\''+esc(p[1])+'\'});render()">+ '+esc(p[0])+'</button>'}).join("")+'</div>':'')+
+     '<div class="row" style="margin-top:8px"><button class="btn ghost" onclick="addIngRow()">+ Ingrediënt</button><button class="btn" onclick="saveOwn()">'+(S.editRid?'Wijzigingen opslaan':'Recept opslaan')+'</button>'+(S.editRid?'<button class="btn ghost" onclick="cancelEdit()">Annuleren</button>':'')+'</div>'+
+     "</form>";
+  // koppel ingredient inputs
+  setTimeout(function(){
+    var n=document.getElementById("revNote");
+    if(n)n.addEventListener("input",function(){S.reviewDraft.note=this.value});
+    document.querySelectorAll("[data-ing]").forEach(function(inp){
+      inp.addEventListener("input",function(){var i=+this.getAttribute("data-ing");S.addDraft.ingredients[i].item=this.value});
+    });
+    document.querySelectorAll("[data-q]").forEach(function(inp){
+      inp.addEventListener("input",function(){var i=+this.getAttribute("data-q");(S.addDraft.ingredients[i]=S.addDraft.ingredients[i]||{item:"",cat:"Overig",qty:""}).qty=this.value});
+    });
+  },0);
+ }
+
+ // score & sorteer
+ var list=allRecipes().filter(function(r){return S.excluded.indexOf(String(r.rid||r.name))<0&&(!S.tagSel||(r.tags||[]).some(function(t){return slug(t)===S.tagSel}))&&(!S.q||(slug(r.name)+" #"+(r.tags||[]).join(" #")+" "+r.ingredients.map(function(i){return i[0]}).join(" ")).indexOf(slug(S.q))>=0)})
+  .map(function(r){
+    var hits=0; r.ingredients.forEach(function(ing){if(stockMatches(ing[0]))hits++});
+    var rat=S.ratings[r.rid||r.name]||{};
+    return {r:r,hits:hits,rating:rat.stars||0,count:rat.count||0,score:hits*2+(rat.stars||0)};
+  }).sort(function(a,b){
+    var ca=(a.r.own||a.r.generated)?1:0,cb=(b.r.own||b.r.generated)?1:0;
+    return cb-ca||b.score-a.score||a.r.time-b.r.time;
+  });
+
+ list.forEach(function(x){
+  var r=x.r,rid=String(r.rid||r.name),inMenu=S.menu.some(function(m){return String(m.rid)===rid});
+  var note=(S.ratings[rid]||{}).note;
+  h+='<div class="recipe'+(inMenu?" chosen":"")+'"><div class="rtop"><span style="display:flex;align-items:center;gap:4px;min-width:0"><b style="cursor:pointer" onclick="toggleOpen(\''+esc(rid)+'\')">'+esc(r.name)+' <span class="muted">'+(S.open[rid]?"▾":"▸")+"</span></b>"+
+     '<button class="x" style="font-size:14px;padding:0 2px" title="Pas aan" onclick="editRecipe(\''+esc(rid)+'\')">✏️</button></span><span style="display:flex;gap:4px">'+
+     '<button class="x" title="Niet meer voorstellen" onclick="toggleExclude(\''+esc(rid)+'\')">✕</button></span></div>'+
+     '<div class="meta"><span>'+r.time+' min</span>'+healthChips(r,rid)+
+     (r.own?chip("🏠 eigen klassieker","gray"):"")+(r.generated?chip("✨ nieuw","pink"):"")+(r.edited?chip("✏️ aangepast","gray"):"")+
+     (r.tags||[]).map(function(t){return '<span>#'+esc(t)+"</span>"}).join("")+
+     (x.hits>0?chip("gebruikt "+x.hits+" over-item(s)","green"):"")+
+     (x.rating>0?starsHtml(x.rating)+(x.count?" · "+x.count+"× gemaakt":""):"")+
+     (r.url?'<a href="'+esc(r.url)+'" target="_blank" rel="noreferrer">bron</a>':"")+
+     "</div>"+(note?'<div class="notechip">📝 '+esc(note)+"</div>":"")+ '<div style="margin-top:6px">'+
+     (inMenu?'<span class="hint">Gekozen ✔</span>':'<button class="btn soft" style="float:right" '+(S.menu.length>=3?"disabled":"")+" onclick=\"choose('"+esc(rid)+"')\">Voeg toe</button>")+
+     "</div>"+(S.open[rid]?ingDetailHtml(r):"")+"</div>";
+ });
+ if(S.q&&!list.length)h+='<div class="card"><p class="muted">🔍 Niets gevonden voor "'+esc(S.q)+'". Probeer een ander woord, of voeg het als eigen recept toe.</p></div>';
+
+ if(S.showExcluded&&S.excluded.length){
+  h+='<div class="card"><h2>Afgewezen recepten</h2><ul>';
+  allRecipes().filter(function(r){return S.excluded.indexOf(String(r.rid||r.name))>=0}).forEach(function(r){
+    h+='<li class="line"><span class="muted" style="text-decoration:line-through">'+esc(r.name)+"</span><button class=\"btn ghost\" style=\"margin-left:auto\" onclick=\"toggleExclude('"+String(r.rid||r.name)+"')\">terug in overzicht</button></li>";
+  });
+  h+="</ul></div>";
+ }
+ h+="</div>"; // sluit Recepten-card
+
+ h+='<div class="card"><h2>⚙️ Sync &amp; data-overdracht</h2>'+
+  '<p class="hint">Synchroniseer automatisch tussen laptop en telefoon via een geheime GitHub-Gist, of gebruik export/import als back-up. Maak bij GitHub onder Settings &gt; Developer settings &gt; Personal access tokens een token aan met alleen de rechten "Gists" (read/write).</p>'+
+  '<div class="row" style="flex-wrap:wrap"><input class="flex" placeholder="GitHub token (plak hier; wordt alleen op dit apparaat bewaard)" value="'+esc(S.sync?S.sync.token||"":"")+'" oninput="S.sync=S.sync||{token:\'\',gistId:\'\'};S.sync.token=this.value.trim();persist(true)">'+
+  '<button class="btn" onclick="syncNow()">🔄 Sync nu</button> <button class="btn ghost" title="Haalt de data van GitHub op en overschrijft dit apparaat, ook als dit apparaat nieuwer lijkt" onclick="forcePull()">⬇️ Forceer ophalen</button></div>'+
+  '<p style="margin:8px 0 0;font-size:13px">Status: <b id="syncStatus">'+esc(SYNC_STATUS||S.lastSyncStatus||"Nog niet gesynchroniseerd")+'</b>'+
+  (S.lastSync?' · <span class="muted">laatst geslaagd: '+esc(fmtSync(S.lastSync))+'</span>':"")+
+  (S.sync&&S.sync.gistId?' · Gist: <a href="https://gist.github.com/'+esc(S.sync.gistId)+'" target="_blank" rel="noreferrer">'+esc(String(S.sync.gistId).slice(0,8))+'…</a>':"")+'</p>'+
+  '<p class="muted" style="margin:6px 0 0;font-size:12px">Sync houdt alleen je data bij GitHub: op dit apparaat bewaard, niet zichtbaar voor anderen.</p>'+
+  '<div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn ghost" title="Slaat al je data op als JSON-bestand op dit apparaat (handmatige back-up)" onclick="exportData()">💾 Back-up downloaden (naar dit apparaat)</button>'+
+  '<label class="btn ghost" style="cursor:pointer" title="Laadt een JSON-back-upbestand terug in de app">📂 Back-up terugzetten (bestand kiezen)<input type="file" accept=".json,application/json" style="display:none" onchange="importData(this)"></label></div></div>'; return h; return h;
+}
+function draftSel(sel,i){S.addDraft.ingredients[i].cat=sel.value;persist()}
+function draftInp(input,i){S.addDraft.ingredients[i].item=input.value}
+
+function renderShopping(){
+ var h="";
+ h+='<div class="card"><div class="row"><h2 style="margin:0">🏪 Boodschappen bij</h2><div class="row">'+
+  STORES.map(function(s){return '<button class="btn '+(S.store===s?"":"ghost")+'" style="border-radius:99px;padding:6px 12px" onclick="setStore(\''+s+'\')">'+esc(s)+"</button>"}).join("")+
+  "</div></div></div>";
+ h+='<div class="card"><h2>➕ Los item toevoegen (lunch, ontbijt, etc.)</h2><div class="row">'+
+  '<input class="flex" placeholder="Bijv. beleg, appels, havermout..." id="exName" oninput="var c=document.getElementById(\'exCat\');var g=guessCat(this.value);c.value=(this.value.trim()&&g&&g!==\'Overig\')?g:\'Overig\'"><select id="exCat">'+
+  CATS.map(function(c){return "<option"+(c==="Overig"?" selected":"")+">"+esc(c)+"</option>"}).join("")+"</select>"+
+  '<button class="btn" onclick="S.extraInput.name=document.getElementById(\'exName\').value;S.extraInput.cat=document.getElementById(\'exCat\').value;addExtra()">Toevoegen</button></div>'+
+  '<p class="hint">De categorie wordt automatisch herkend terwijl je typt ( Appels → Groente & Fruit, havermout → Droogvoer); zelf aanpassen kan altijd.</p></div>';
+ var lines=shoppingList();
+ if(lines.length===0&&S.removed.length===0&&S.extra.length===0)
+  h+='<p class="muted">Nog geen lijst. Kies recepten in het weekmenu en de ingrediënten verschijnen hier.</p>';
+ var byCat={};lines.forEach(function(l){(byCat[l.cat]=byCat[l.cat]||[]).push(l)});
+ S.extra.forEach(function(it){var c=normCat(it.cat,it.name);(byCat[c]=byCat[c]||[]).push({item:it.name,cat:c,extra:true,xid:it.id,src:[],port:2})});
+ CATS.concat(Object.keys(byCat).filter(function(c){return CATS.indexOf(c)<0})).forEach(function(cat){
+  if(!byCat[cat])return;
+  h+='<div class="card"><h3>'+esc(cat)+"</h3><ul>";
+  byCat[cat].forEach(function(l){
+   var k=l.extra?("extra:"+l.xid):l.item;
+   h+='<li class="line"><input type="checkbox" '+(S.checked[k]?"checked":"")+' onchange="toggleCheck(\''+esc(k)+'\')">'+
+      '<span class="'+(S.checked[k]?"done":"")+'">'+(l.extra?"":(qtyLabel(l.item,l.port,l.cust)?'<b>'+esc(qtyLabel(l.item,l.port,l.cust))+'</b> ':''))+esc(l.item)+"</span>"+
+      (l.extra?'<span class="muted">los item</span>':'<span class="muted">'+l.src.map(function(s){return esc(s)}).join(", ")+"</span>")+
+      (l.port>2?chip('± '+(l.port/2)+'× inkopen (visite)','amber'):"")+
+      (l.cat==="Diepvries"?(l.fridgeOk?chip("❄️ koelkast bewaren, prima","amber"):chip("⚠ geen vriezer: alleen op de dag zelf","red")):"")+
+      (l.extra?'<button class="x" style="margin-left:auto" onclick="delExtra('+l.xid+')">verwijder</button>':'<button class="x" style="margin-left:auto" onclick="haveAtHome(\''+esc(l.item)+'\',\''+esc(l.cat)+'\')">heb ik al ✕</button>')+'</li>';
+  });
+  h+="</ul></div>";
+ });
+ if(S.removed.length){
+  h+='<div class="warn">';
+  S.removed.forEach(function(r){
+   h+='<div>✗ '+esc(r.name)+' staat niet op de lijst (staat bij "In huis"). <button class="btn ghost" style="padding:2px 8px" onclick="unRemove(\''+esc(r.name)+'\')">zet terug</button></div>';
+  });
+  h+="</div>";
+ }
+ return h;
+}
+
+function renderStock(){
+ var h=""; 
+ h+='<div class="card"><h2>🧺 Wat ik nog over heb</h2><p class="hint">Dit gaat voor: recepten die hiervan gebruikmaken staan bovenaan, en het wordt automatisch van je boodschappenlijst afgehaald.</p>'+
+    '<div class="row"><input class="flex" id="stName" placeholder="Bijv. halve pak spinazie, 3 aardappelen..."><button class="btn" onclick="S.stockInput.name=document.getElementById(\'stName\').value;addStock()">Toevoegen</button></div>';
+ if(S.stock.length){
+  var byCat={};
+  S.stock.forEach(function(s){var c=normCat(guessCat(s.name));(byCat[c]=byCat[c]||[]).push(s)});
+  CATS.concat(Object.keys(byCat).filter(function(c){return CATS.indexOf(c)<0})).forEach(function(cat){
+   if(!byCat[cat])return;
+   h+='<div style="margin-top:12px"><h3 style="margin:0 0 6px;font-size:14px">'+esc(cat)+'</h3><div class="row" style="flex-wrap:wrap">';
+   byCat[cat].forEach(function(s){
+    h+='<span class="chip green">'+esc(s.name)+' <button class="x" style="display:inline;color:#065f46" onclick="delStock('+s.id+')">✕</button></span>';
+   });
+   h+="</div></div>";
+  });
+ } else h+='<p class="muted" style="margin-top:10px">Nog niets aangegeven.</p>';
+ h+="</div>";
+
+ var list=allRecipes().map(function(r){
+   var hits=0;r.ingredients.forEach(function(ing){if(stockMatches(ing[0]))hits++});
+   var rat=S.ratings[r.rid||r.name]||{};
+   return {r:r,hits:hits,rating:rat.stars||0};
+ }).sort(function(a,b){return b.hits-a.hits}).slice(0,6);
+
+ h+='<div class="card"><h2>💡 Tip: maak dit met je restjes</h2><ul>';
+ list.forEach(function(x){
+  h+='<li class="line"><b>'+esc(x.r.name)+"</b>"+
+     (x.hits>0?chip(x.hits+" over-item(s) gebruikt","green"):"")+
+     (x.rating>0?'<span class="stars">'+starsHtml(x.rating)+"</span>":"")+"</li>";
+ });
+ h+='</ul><p class="hint" style="margin-top:8px">Recepten die je eerder hoger beoordeelde, komen hier vaker in te staan.</p></div>';
+ return h;
+}
+
+render();
+if(S.sync&&S.sync.token)setTimeout(function(){pullNow().catch(function(){})},800);
+</script>
+<script>
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  navigator.serviceWorker.register('sw.js').catch(function(e){console.warn('SW registratie mislukt:',e)});
+}
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="UrAc3I7eg5Pm55/+dUg4tw==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
