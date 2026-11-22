@@ -25,6 +25,7 @@ input.flex,textarea{flex:1;min-width:140px}
 .btn{background:#059669;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:500;cursor:pointer}
 .btn.soft{background:#ecfdf5;color:#065f46}
 .btn.ghost{background:#fff;color:#444;border:1px solid #ccc}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#065f46;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.3);opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;max-width:88vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn:disabled{opacity:.5}
 .chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:500}
 .chip.green{background:#d1fae5;color:#065f46}.chip.amber{background:#fef3c7;color:#92400e}.chip.gray{background:#f3f4f6;color:#4b5563}.chip.pink{background:#fce7f3;color:#9d174d}.chip.red{background:#fee2e2;color:#b91c1c}
@@ -229,18 +230,26 @@ function parsePaste(text){
 }
 
 // ---------- Acties ----------
+var TOAST_TIMER=null;
+function showToast(msg){
+ var t=document.getElementById("toast");
+ if(!t){t=document.createElement("div");t.id="toast";t.className="toast";document.body.appendChild(t)}
+ t.textContent=msg;t.style.opacity="1";
+ if(TOAST_TIMER)clearTimeout(TOAST_TIMER);
+ TOAST_TIMER=setTimeout(function(){t.style.opacity="0"},2600);
+}
 function setTab(t){S.tab=t;persist();render()}
 function addStock(){
  var n=S.stockInput.name.trim();if(!n)return;
- S.stock.push({id:uid(),name:n});S.stockInput.name="";persist();render();
+ S.stock.push({id:uid(),name:n});S.stockInput.name="";persist();render();showToast("✅ "+n+" toegevoegd aan In huis");
 }
 function delStock(id){S.stock=S.stock.filter(function(s){return s.id!==id});persist();render()}
 function addExtra(){
  var n=S.extraInput.name.trim();if(!n)return;
- S.extra.push({id:uid(),name:n,cat:S.extraInput.cat});S.extraInput.name="";persist();render();
+ S.extra.push({id:uid(),name:n,cat:S.extraInput.cat});S.extraInput.name="";persist();render();showToast("✅ "+n+" toegevoegd aan de lijst");
 }
 function delExtra(id){S.extra=S.extra.filter(function(s){return s.id!==id});persist();render()}
-function choose(rid){if(S.menu.length>=3)return;S.menu.push({id:uid(),rid:String(rid),portions:2});persist();render()}
+function choose(rid){if(S.menu.length>=3)return;S.menu.push({id:uid(),rid:String(rid),portions:2});persist();render();var r=recipeById(rid);showToast("✅ "+(r?r.name:"Recept")+" toegevoegd aan weekmenu")}
 function setPortions(id,d){var m=S.menu.find(function(x){return String(x.id)===String(id)});if(!m)return;m.portions=Math.max(2,Math.min(12,(m.portions||2)+d));persist();render()}
 function setTagSel(t){S.tagSel=t;render()}
 var TAG_SEED=["zomer","winter","lente","herfst","weekend","doordeweeks","snel","comfort","budget","meal-prep","feest"];
@@ -369,11 +378,11 @@ function pushNow(){
  return resolveGist().then(function(g){
   if(!g){
    return gh("POST","https://api.github.com/gists",{description:"weekmenu-sync",public:false,files:{"weekmenu.json":{content:content}}})
-    .then(function(g){S.sync.gistId=g.id;persist(true);syncOk("✅ Gist aangemaakt & geüpload ("+countMsg()+")");render()});
+    .then(function(g){S.sync.gistId=g.id;persist(true);syncOk("✅ Gist aangemaakt & geüpload ("+countMsg()+")");renderIfIdle()});
   }
   if(S.sync.gistId!==g.id)S.sync.gistId=g.id;
   persist(true);
-  return build(g.id).then(function(){syncOk("✅ Geüpload naar GitHub ("+countMsg()+")");render()});
+  return build(g.id).then(function(){syncOk("✅ Geüpload naar GitHub ("+countMsg()+")");renderIfIdle()});
  });
 }
 function pullNow(){
@@ -390,7 +399,7 @@ function pullNow(){
    if(!raw){setSyncStatus("Gist gevonden maar leeg; druk nogmaals op Sync om te uploaden.");return "empty"}
    var p;try{p=JSON.parse(raw)}catch(e){throw new Error("Ongeldige data")}
    S.sync.gistId=g.id;persist(true);
-   if(!p.t||p.t>S.savedAt||!S.savedAt){applyPayload(p);S.savedAt=p.t||Date.now();persist(true);syncOk("⬇️ Data van GitHub opgehaald · weekmenu: "+S.menu.length+" recepten");render();return "pulled"}
+   if(!p.t||p.t>S.savedAt||!S.savedAt){applyPayload(p);S.savedAt=p.t||Date.now();persist(true);syncOk("⬇️ Data van GitHub opgehaald · weekmenu: "+S.menu.length+" recepten");renderIfIdle();return "pulled"}
    setSyncStatus("GitHub is niet nieuwer dan dit apparaat");return "same";
   });
  }
@@ -405,7 +414,7 @@ function forcePull(){
   if(g.id)S.sync.gistId=g.id;
   applyPayload(p);S.savedAt=p.t||Date.now();persist(true);
   syncOk("⬇️ Data geforceerd opgehaald · weekmenu: "+S.menu.length+" recepten");
-  render();alert("✅ Opgehaald: "+S.menu.length+" weekmenu-recepten.")
+  renderIfIdle();alert("✅ Opgehaald: "+S.menu.length+" weekmenu-recepten.")
  };
  resolveGist().then(function(g){if(!g)return null;if(S.sync.gistId!==g.id)S.sync.gistId=g.id;persist(true);return gh("GET","https://api.github.com/gists/"+g.id)})
  .then(after).catch(function(e){setSyncStatus("❌ "+e.message)});
@@ -510,6 +519,9 @@ function catSelect(id,val){
  return h+"</select>";
 }
 
+var RENDER_PENDING=false;
+function userTyping(){var el=document.activeElement;return !!el&&!!el.tagName&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)}
+function renderIfIdle(){if(userTyping()){RENDER_PENDING=true;setSyncStatus(SYNC_STATUS)}else{RENDER_PENDING=false;render()}}
 function render(){
  var ae=null;try{ae=document.activeElement&&document.activeElement.id}catch(e){}
  document.getElementById("tabs").innerHTML=
@@ -520,6 +532,10 @@ function render(){
  if(S.tab==="menu")el.innerHTML=renderMenu();
  else if(S.tab==="boodschappen")el.innerHTML=renderShopping();
  else el.innerHTML=renderStock();
+ if(S.tab==="boodschappen"){
+  var ec=document.getElementById("exCat");if(ec)ec.value=S.extraInput.cat||"Overig";
+  var en=document.getElementById("exName");if(en){en.value=S.extraInput.name||""}
+ }
  if(S.tab==="menu"){
   var sb2=document.getElementById("searchBox");
   if(sb2){sb2.value=S.q;if(ae==="searchBox"){try{sb2.focus();sb2.setSelectionRange(S.q.length,S.q.length)}catch(e){}}}
@@ -662,7 +678,7 @@ tagRegistry().map(function(t){return '<button class="btn ghost" style="border-ra
   (S.sync&&S.sync.gistId?' · Gist: <a href="https://gist.github.com/'+esc(S.sync.gistId)+'" target="_blank" rel="noreferrer">'+esc(String(S.sync.gistId).slice(0,8))+'…</a>':"")+'</p>'+
   '<p class="muted" style="margin:6px 0 0;font-size:12px">Sync houdt alleen je data bij GitHub: op dit apparaat bewaard, niet zichtbaar voor anderen.</p>'+
   '<div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn ghost" title="Slaat al je data op als JSON-bestand op dit apparaat (handmatige back-up)" onclick="exportData()">💾 Back-up downloaden (naar dit apparaat)</button>'+
-  '<label class="btn ghost" style="cursor:pointer" title="Laadt een JSON-back-upbestand terug in de app">📂 Back-up terugzetten (bestand kiezen)<input type="file" accept=".json,application/json" style="display:none" onchange="importData(this)"></label></div></div>'; return h; return h;
+  '<label class="btn ghost" style="cursor:pointer" title="Laadt een JSON-back-upbestand terug in de app">📂 Back-up terugzetten (bestand kiezen)<input type="file" accept=".json,application/json" style="display:none" onchange="importData(this)"></label></div></div>'; return h;
 }
 function draftSel(sel,i){S.addDraft.ingredients[i].cat=sel.value;persist()}
 function draftInp(input,i){S.addDraft.ingredients[i].item=input.value}
@@ -673,9 +689,9 @@ function renderShopping(){
   STORES.map(function(s){return '<button class="btn '+(S.store===s?"":"ghost")+'" style="border-radius:99px;padding:6px 12px" onclick="setStore(\''+s+'\')">'+esc(s)+"</button>"}).join("")+
   "</div></div></div>";
  h+='<div class="card"><h2>➕ Los item toevoegen (lunch, ontbijt, etc.)</h2><div class="row">'+
-  '<input class="flex" placeholder="Bijv. beleg, appels, havermout..." id="exName" oninput="var c=document.getElementById(\'exCat\');var g=guessCat(this.value);c.value=(this.value.trim()&&g&&g!==\'Overig\')?g:\'Overig\'"><select id="exCat">'+
+  '<input class="flex" placeholder="Bijv. beleg, appels, havermout..." id="exName" value="'+esc(S.extraInput.name||"")+'" oninput="S.extraInput.name=this.value;var c=document.getElementById(\'exCat\');var g=guessCat(this.value);if(this.value.trim()&&g&&g!==\'Overig\'){S.extraInput.cat=g;c.value=g}"><select id="exCat" onchange="S.extraInput.cat=this.value">'+
   CATS.map(function(c){return "<option"+(c==="Overig"?" selected":"")+">"+esc(c)+"</option>"}).join("")+"</select>"+
-  '<button class="btn" onclick="S.extraInput.name=document.getElementById(\'exName\').value;S.extraInput.cat=document.getElementById(\'exCat\').value;addExtra()">Toevoegen</button></div>'+
+  '<button class="btn" onclick="addExtra()">Toevoegen</button></div>'+
   '<p class="hint">De categorie wordt automatisch herkend terwijl je typt ( Appels → Groente & Fruit, havermout → Droogvoer); zelf aanpassen kan altijd.</p></div>';
  var lines=shoppingList();
  if(lines.length===0&&S.removed.length===0&&S.extra.length===0)
@@ -709,7 +725,7 @@ function renderShopping(){
 function renderStock(){
  var h=""; 
  h+='<div class="card"><h2>🧺 Wat ik nog over heb</h2><p class="hint">Dit gaat voor: recepten die hiervan gebruikmaken staan bovenaan, en het wordt automatisch van je boodschappenlijst afgehaald.</p>'+
-    '<div class="row"><input class="flex" id="stName" placeholder="Bijv. halve pak spinazie, 3 aardappelen..."><button class="btn" onclick="S.stockInput.name=document.getElementById(\'stName\').value;addStock()">Toevoegen</button></div>';
+    '<div class="row"><input class="flex" id="stName" placeholder="Bijv. halve pak spinazie, 3 aardappelen..." value="'+esc(S.stockInput.name||"")+'" oninput="S.stockInput.name=this.value"><button class="btn" onclick="addStock()">Toevoegen</button></div>';
  if(S.stock.length){
   var byCat={};
   S.stock.forEach(function(s){var c=normCat(guessCat(s.name));(byCat[c]=byCat[c]||[]).push(s)});
@@ -741,6 +757,8 @@ function renderStock(){
 }
 
 render();
+document.addEventListener("focusout",function(){setTimeout(function(){if(RENDER_PENDING&&!userTyping()){RENDER_PENDING=false;render()}},120)});
+document.addEventListener("visibilitychange",function(){if(RENDER_PENDING&&!userTyping()&&!document.hidden){RENDER_PENDING=false;render()}});
 if(S.sync&&S.sync.token)setTimeout(function(){pullNow().catch(function(){})},800);
 </script>
 <script>
