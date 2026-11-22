@@ -1,5 +1,5 @@
 // Weekmenu PWA - offline cache
-var CACHE = "weekmenu-v1";
+var CACHE = "weekmenu-v2";
 var ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (e) {
